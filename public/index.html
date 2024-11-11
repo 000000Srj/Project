@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SyncSlide</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Welcome to SyncSlide</h1>
+    <p>Emphasizes synchronized viewing of slides in real time.</p>
+    
+    <!-- File upload input -->
+    <input type="file" id="uploadPdf" accept="application/pdf">
+    
+    <!-- Buttons for navigating slides -->
+    <div class="controls">
+      <button id="prevPage">Previous Page</button>
+      <button id="nextPage">Next Page</button>
+    </div>
+    
+    <!-- Display the current page number and total pages -->
+    <div class="page-navigation">
+      <span id="pageNum">Page 1</span> / <span id="pageCount">0</span>
+    </div>
+    
+    <!-- Container for the PDF content -->
+    <canvas id="pdfCanvas"></canvas>
+  </div>
+
+  <script>
+    let pdfDoc = null;        // The PDF document
+    let currentPage = 1;      // Current page number
+    let totalPages = 0;       // Total pages in the PDF
+    const canvas = document.getElementById('pdfCanvas');
+    const ctx = canvas.getContext('2d');
+    const uploadPdfInput = document.getElementById('uploadPdf');
+    
+    // Handle PDF upload
+    uploadPdfInput.addEventListener('change', function(event) {
+      const file = event.target.files[0];
+      if (file && file.type === 'application/pdf') {
+        const fileReader = new FileReader();
+        fileReader.onload = function() {
+          const pdfData = new Uint8Array(this.result);
+          loadPdf(pdfData);
+        };
+        fileReader.readAsArrayBuffer(file);
+      } else {
+        alert("Please upload a valid PDF file.");
+      }
+    });
+
+    // Load the uploaded PDF
+    function loadPdf(pdfData) {
+      pdfjsLib.getDocument(pdfData).promise.then(function(pdf) {
+        pdfDoc = pdf;
+        totalPages = pdfDoc.numPages;
+        document.getElementById('pageCount').textContent = totalPages;
+
+        // Render the first page
+        renderPage(currentPage);
+      }).catch(function(error) {
+        console.error("Error loading PDF: ", error);
+        alert("Failed to load PDF. Please try again.");
+      });
+    }
+
+    // Render a page
+    function renderPage(pageNum) {
+      pdfDoc.getPage(pageNum).then(function(page) {
+        const scale = 1.5;  // Zoom factor
+        const viewport = page.getViewport({ scale: scale });
+
+        // Set canvas dimensions
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+
+        // Render the page on the canvas
+        const renderContext = {
+          canvasContext: ctx,
+          viewport: viewport
+        };
+        page.render(renderContext).promise.then(function() {
+          document.getElementById('pageNum').textContent = pageNum;
+        });
+      });
+    }
+
+    // Navigate to the previous page
+    document.getElementById('prevPage').addEventListener('click', function() {
+      if (currentPage > 1) {
+        currentPage--;
+        renderPage(currentPage);
+      }
+    });
+
+    // Navigate to the next page
+    document.getElementById('nextPage').addEventListener('click', function() {
+      if (currentPage < totalPages) {
+        currentPage++;
+        renderPage(currentPage);
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "name": "syncslide",
+  "version": "1.0.0",
+  "description": "Emphasizes synchronized viewing of slides in real time.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/venomusblood568/SyncSlide.git"
+  },
+  "author": "Sam",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/venomusblood568/SyncSlide/issues"
+  },
+  "homepage": "https://github.com/venomusblood568/SyncSlide#readme",
+  "dependencies": {
+    "express": "^4.21.1",
+    "socket.io": "^4.8.1"
+  }
+}
