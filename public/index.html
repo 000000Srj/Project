@@ -4,30 +4,35 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SyncSlide</title>
-  <link rel="stylesheet" href="styles.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="container">
-    <h1>Welcome to SyncSlide</h1>
-    <p>Emphasizes synchronized viewing of slides in real time.</p>
+    <div class="pdf-viewer">
+      <h1>Welcome to SyncSlide</h1>
+      <p>Emphasizes synchronized viewing of slides in real-time.</p>
+
+      <input type="file" id="uploadPdf" accept="application/pdf">
+
+      <div class="pdf-navigation">
+        <button id="reset">New pdf</button>
+        <button id="prevPage">Previous Page</button>
+        <button id="nextPage">Next Page</button>
+      
+
+        
+      </div>
+      <div class="page-info">
+        <span id="pageNum">Page 1</span> / <span id="pageCount">0</span>
+      </div>
     
-    <!-- File upload input -->
-    <input type="file" id="uploadPdf" accept="application/pdf">
-    
-    <!-- Buttons for navigating slides -->
-    <div class="controls">
-      <button id="prevPage">Previous Page</button>
-      <button id="nextPage">Next Page</button>
+      <canvas id="pdfCanvas"></canvas>
+
     </div>
-    
-    <!-- Display the current page number and total pages -->
-    <div class="page-navigation">
-      <span id="pageNum">Page 1</span> / <span id="pageCount">0</span>
-    </div>
-    
-    <!-- Container for the PDF content -->
-    <canvas id="pdfCanvas"></canvas>
+
+    <!-- Sidebar for page thumbnails -->
+    <div class="page-thumbnails" id="thumbnailsContainer"></div>
   </div>
 
   <script>
@@ -37,7 +42,10 @@
     const canvas = document.getElementById('pdfCanvas');
     const ctx = canvas.getContext('2d');
     const uploadPdfInput = document.getElementById('uploadPdf');
-    
+    const thumbnailsContainer = document.getElementById('thumbnailsContainer');
+    const prevPageBtn = document.getElementById('prevPage');
+    const nextPageBtn = document.getElementById('nextPage');
+
     // Handle PDF upload
     uploadPdfInput.addEventListener('change', function(event) {
       const file = event.target.files[0];
@@ -62,6 +70,9 @@
 
         // Render the first page
         renderPage(currentPage);
+
+        // Generate thumbnails
+        generateThumbnails();
       }).catch(function(error) {
         console.error("Error loading PDF: ", error);
         alert("Failed to load PDF. Please try again.");
@@ -85,12 +96,58 @@
         };
         page.render(renderContext).promise.then(function() {
           document.getElementById('pageNum').textContent = pageNum;
+          highlightThumbnail(pageNum); // Highlight current page in the thumbnails
         });
       });
     }
 
+    // Generate thumbnails for all pages
+    function generateThumbnails() {
+      for (let i = 1; i <= totalPages; i++) {
+        const thumbnailContainer = document.createElement('div');
+        const thumbnail = document.createElement('canvas');
+        thumbnail.classList.add('thumbnail');
+        thumbnailContainer.appendChild(thumbnail);
+
+        // Render the page thumbnail
+        pdfDoc.getPage(i).then(function(page) {
+          const scale = 0.2; // Thumbnail zoom factor
+          const viewport = page.getViewport({ scale: scale });
+
+          thumbnail.width = viewport.width;
+          thumbnail.height = viewport.height;
+
+          const renderContext = {
+            canvasContext: thumbnail.getContext('2d'),
+            viewport: viewport
+          };
+          page.render(renderContext);
+        });
+
+        // Add click event to set the page
+        thumbnailContainer.addEventListener('click', function() {
+          currentPage = i;
+          renderPage(currentPage);
+        });
+
+        thumbnailsContainer.appendChild(thumbnailContainer);
+      }
+    }
+
+    // Highlight the current page in the thumbnail list
+    function highlightThumbnail(pageNum) {
+      const thumbnails = document.querySelectorAll('.thumbnail');
+      thumbnails.forEach((thumbnail, index) => {
+        if (index + 1 === pageNum) {
+          thumbnail.classList.add('active-thumbnail');
+        } else {
+          thumbnail.classList.remove('active-thumbnail');
+        }
+      });
+    }
+
     // Navigate to the previous page
-    document.getElementById('prevPage').addEventListener('click', function() {
+    prevPageBtn.addEventListener('click', function() {
       if (currentPage > 1) {
         currentPage--;
         renderPage(currentPage);
@@ -98,12 +155,57 @@
     });
 
     // Navigate to the next page
-    document.getElementById('nextPage').addEventListener('click', function() {
+    nextPageBtn.addEventListener('click', function() {
       if (currentPage < totalPages) {
         currentPage++;
         renderPage(currentPage);
       }
     });
+
+    document.getElementById('reset').addEventListener('click', function () {
+  // Clear the PDF canvas
+  const context = canvas.getContext('2d');
+  context.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Reset page navigation information
+  document.getElementById('pageNum').textContent = 'Page 0';
+  document.getElementById('pageCount').textContent = '0';
+
+  // Clear the thumbnails container
+  thumbnailsContainer.innerHTML = '';
+
+  // Reset PDF document and page number tracking
+  pdfDoc = null;
+  currentPage = 1;
+  totalPages = 0;
+
+  // Reset the upload file input
+  uploadPdfInput.value = ''; // Optional: clears the file selection
+});
+
+// Update loadPdf function to enable navigation buttons after PDF loads successfully
+function loadPdf(pdfData) {
+  pdfjsLib.getDocument(pdfData).promise.then(function(pdf) {
+    pdfDoc = pdf;
+    totalPages = pdfDoc.numPages;
+    document.getElementById('pageCount').textContent = totalPages;
+
+    // Enable the navigation buttons now that a new PDF is loaded
+    prevPageBtn.disabled = false;
+    nextPageBtn.disabled = false;
+
+    // Render the first page
+    renderPage(currentPage);
+
+    // Generate thumbnails
+    generateThumbnails();
+  }).catch(function(error) {
+    console.error("Error loading PDF: ", error);
+    alert("Failed to load PDF. Please try again.");
+  });
+}
+
+
   </script>
 </body>
 </html>

@@ -15,6 +15,9 @@ SyncSlide – Emphasizes synchronized viewing of slides in real time.
 - [x] Implement JavaScript to load and render PDF pages
 - [x] Add "Next" and "Previous" buttons for navigation
 - [x] Display current page number and total pages
+- [x] Show other pages on side
+- [x] Highlight the current page shown
+- [x] Reset button for new pdf
 
 ## Step 3: Real-Time Synchronization
 - [ ] Use Socket.IO to create connections for each client

@@ -6,8 +6,8 @@
       background-color: #f4f4f4;
       color: #333;
       display: flex;
-      align-items: center;
       justify-content: center;
+      align-items: flex-start;
       height: 100vh;
       overflow: hidden;
       text-align: center;
@@ -15,43 +15,57 @@
 
     .container {
       width: 90%;
-      max-width: 800px;
-      text-align: center;
+      max-width: 1000px;
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      margin-top: 20px;
+    }
+
+    .pdf-viewer {
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
     }
 
-    h1 {
-      font-size: 2.5rem;
-      color: #1f77b4;
-      margin-bottom: 20px;
-    }
-
-    p {
-      font-size: 1.2rem;
-      color: #555;
-      margin-bottom: 30px;
-      max-width: 600px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    input[type="file"] {
-      margin-bottom: 20px;
-      padding: 10px;
-      border: 2px solid #1f77b4;
-      border-radius: 5px;
-      font-size: 1rem;
-      cursor: pointer;
-    }
-
-    .controls {
+    .pdf-navigation {
+      margin-top: 20px;
       display: flex;
       justify-content: center;
-      margin-bottom: 20px;
       gap: 10px;
+    }
+
+    #pdfCanvas {
+      border: 1px solid #ddd;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      display: block;
+      max-width: 100%;
+      height: auto;
+      margin-bottom: 20px;
+    }
+
+    .page-thumbnails {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-left: 20px;
+    }
+
+    .thumbnail {
+      margin: 5px;
+      padding: 2px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border-color 0.3s;
+    }
+
+    .thumbnail:hover {
+      border-color: #1f77b4;
+    }
+
+    .active-thumbnail {
+      border-color: #1f77b4;
+      background-color: #e3f2fd;
     }
 
     button {
@@ -75,53 +89,33 @@
       cursor: not-allowed;
     }
 
-    #pdfCanvas {
-      border: 1px solid #ddd;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-      margin-top: 20px;
-      display: block;
-      max-width: 100%;
-      height: auto;
+    .page-info {
+        font-weight: bold;
+        font-size: 1.1rem;
+        color: #333;
+        display: flex;
+        justify-content: center; /* Centers the content */
+        align-items: center;
+        gap: 5px; /* Optional spacing between page number and total */
     }
-
+    
     #pageNum, #pageCount {
-      font-weight: bold;
-      font-size: 1.1rem;
-      color: #333;
+        display: inline; /* Keep inline styling for individual elements */
+        margin: 0;
     }
-
-    .page-navigation {
-      display: flex;
-      justify-content: center;
-      margin-top: 10px;
-    }
-
-    .page-navigation span {
-      margin: 0 15px;
-      font-size: 1.2rem;
-      color: #555;
-    }
-
+    
     @media (max-width: 600px) {
-      h1 {
-        font-size: 2rem;
-      }
-
-      p {
-        font-size: 1rem;
-      }
-
-      .controls {
+      .container {
         flex-direction: column;
       }
 
-      .controls button {
-        width: 100%;
-        margin: 5px 0;
+      .pdf-navigation,
+      .thumbnail {
+        flex-direction: column;
       }
 
-      .page-navigation span {
-        font-size: 1rem;
+      .pdf-navigation button {
+        margin-bottom: 10px;
       }
     }
 </style>
