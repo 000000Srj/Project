@@ -20,7 +20,9 @@ SyncSlide – Emphasizes synchronized viewing of slides in real time.
 - [x] Reset button for new pdf
 
 ## Step 3: Real-Time Synchronization
-- [ ] Use Socket.IO to create connections for each client
+- [x] Use Socket.IO to create connections for each client
+- [x] Group making of all the user 
+- [x] highlight the admin
 - [ ] Emit `pageChanged` events from the admin (presenter)
 - [ ] Ensure viewer clients listen for `pageChanged` events
 - [ ] Sync new viewers to the admin’s current page on join

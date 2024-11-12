@@ -12,200 +12,96 @@
     <div class="pdf-viewer">
       <h1>Welcome to SyncSlide</h1>
       <p>Emphasizes synchronized viewing of slides in real-time.</p>
-
-      <input type="file" id="uploadPdf" accept="application/pdf">
-
-      <div class="pdf-navigation">
-        <button id="reset">New pdf</button>
-        <button id="prevPage">Previous Page</button>
-        <button id="nextPage">Next Page</button>
-      
-
-        
+      <div>
+        <input type="text" id="groupName" placeholder="Enter group name">
+        <input type="text" id="userName" placeholder="Enter your name">
+        <button id="createGroup">Create Group</button>
+        <button id="joinGroup">Join Group</button>
       </div>
-      <div class="page-info">
-        <span id="pageNum">Page 1</span> / <span id="pageCount">0</span>
-      </div>
-    
-      <canvas id="pdfCanvas"></canvas>
 
+      <div id="groupInfo">
+        <h3>Group Info</h3>
+        <p>Group Name: <span id="groupTitle"></span></p>
+        <p>Admin: <span id="adminName"></span></p>
+        <p>Members: <span id="memberCount">0</span></p>
+        <ul id="memberList"></ul>
+      </div>
     </div>
-
-    <!-- Sidebar for page thumbnails -->
-    <div class="page-thumbnails" id="thumbnailsContainer"></div>
   </div>
 
+  <script src="/socket.io/socket.io.js"></script>
   <script>
-    let pdfDoc = null;        // The PDF document
-    let currentPage = 1;      // Current page number
-    let totalPages = 0;       // Total pages in the PDF
-    const canvas = document.getElementById('pdfCanvas');
-    const ctx = canvas.getContext('2d');
-    const uploadPdfInput = document.getElementById('uploadPdf');
-    const thumbnailsContainer = document.getElementById('thumbnailsContainer');
-    const prevPageBtn = document.getElementById('prevPage');
-    const nextPageBtn = document.getElementById('nextPage');
+    const socket = io();
+    const createGroupBtn = document.getElementById('createGroup');
+    const joinGroupBtn = document.getElementById('joinGroup');
+    const groupNameInput = document.getElementById('groupName');
+    const userNameInput = document.getElementById('userName');
+    const groupTitle = document.getElementById('groupTitle');
+    const adminName = document.getElementById('adminName');
+    const memberCount = document.getElementById('memberCount');
+    const memberList = document.getElementById('memberList');
 
-    // Handle PDF upload
-    uploadPdfInput.addEventListener('change', function(event) {
-      const file = event.target.files[0];
-      if (file && file.type === 'application/pdf') {
-        const fileReader = new FileReader();
-        fileReader.onload = function() {
-          const pdfData = new Uint8Array(this.result);
-          loadPdf(pdfData);
-        };
-        fileReader.readAsArrayBuffer(file);
+    // Create group
+    createGroupBtn.addEventListener('click', () => {
+      const groupName = groupNameInput.value;
+      const userName = userNameInput.value || "Guest"; // Default name if none provided
+      if (groupName) {
+        socket.emit('createGroup', { groupName, adminName: userName });
       } else {
-        alert("Please upload a valid PDF file.");
+        alert('Please enter a group name.');
       }
     });
 
-    // Load the uploaded PDF
-    function loadPdf(pdfData) {
-      pdfjsLib.getDocument(pdfData).promise.then(function(pdf) {
-        pdfDoc = pdf;
-        totalPages = pdfDoc.numPages;
-        document.getElementById('pageCount').textContent = totalPages;
-
-        // Render the first page
-        renderPage(currentPage);
-
-        // Generate thumbnails
-        generateThumbnails();
-      }).catch(function(error) {
-        console.error("Error loading PDF: ", error);
-        alert("Failed to load PDF. Please try again.");
-      });
-    }
-
-    // Render a page
-    function renderPage(pageNum) {
-      pdfDoc.getPage(pageNum).then(function(page) {
-        const scale = 1.5;  // Zoom factor
-        const viewport = page.getViewport({ scale: scale });
-
-        // Set canvas dimensions
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-
-        // Render the page on the canvas
-        const renderContext = {
-          canvasContext: ctx,
-          viewport: viewport
-        };
-        page.render(renderContext).promise.then(function() {
-          document.getElementById('pageNum').textContent = pageNum;
-          highlightThumbnail(pageNum); // Highlight current page in the thumbnails
-        });
-      });
-    }
-
-    // Generate thumbnails for all pages
-    function generateThumbnails() {
-      for (let i = 1; i <= totalPages; i++) {
-        const thumbnailContainer = document.createElement('div');
-        const thumbnail = document.createElement('canvas');
-        thumbnail.classList.add('thumbnail');
-        thumbnailContainer.appendChild(thumbnail);
-
-        // Render the page thumbnail
-        pdfDoc.getPage(i).then(function(page) {
-          const scale = 0.2; // Thumbnail zoom factor
-          const viewport = page.getViewport({ scale: scale });
-
-          thumbnail.width = viewport.width;
-          thumbnail.height = viewport.height;
-
-          const renderContext = {
-            canvasContext: thumbnail.getContext('2d'),
-            viewport: viewport
-          };
-          page.render(renderContext);
-        });
-
-        // Add click event to set the page
-        thumbnailContainer.addEventListener('click', function() {
-          currentPage = i;
-          renderPage(currentPage);
-        });
-
-        thumbnailsContainer.appendChild(thumbnailContainer);
+    // Join group
+    joinGroupBtn.addEventListener('click', () => {
+      const groupName = groupNameInput.value;
+      const userName = userNameInput.value || "Guest"; // Default name if none provided
+      if (groupName) {
+        socket.emit('joinGroup', { groupName, userName });
+      } else {
+        alert('Please enter a group name.');
       }
-    }
+    });
 
-    // Highlight the current page in the thumbnail list
-    function highlightThumbnail(pageNum) {
-      const thumbnails = document.querySelectorAll('.thumbnail');
-      thumbnails.forEach((thumbnail, index) => {
-        if (index + 1 === pageNum) {
-          thumbnail.classList.add('active-thumbnail');
-        } else {
-          thumbnail.classList.remove('active-thumbnail');
+    // Group created successfully
+    socket.on('groupCreated', ({ groupName, admin }) => {
+      groupTitle.textContent = groupName;
+      adminName.textContent = `${admin}`;
+      updateGroupInfo();
+    });
+
+    // Joined group successfully
+    socket.on('joinedGroup', ({ groupName, admin }) => {
+      groupTitle.textContent = groupName;
+      adminName.textContent = `${admin}`;
+      updateGroupInfo();
+    });
+
+    // Update group members list
+    socket.on('updateGroup', ({ groupName, admin, members }) => {
+      groupTitle.textContent = groupName;
+      adminName.textContent = `${admin}`;
+      memberCount.textContent = members.length;
+      memberList.innerHTML = ''; // Clear the member list before updating it
+      members.forEach(member => {
+        const li = document.createElement('li');
+        li.textContent = member.name;
+        if (member.id === members[0].id) { // Highlight admin
+          li.style.fontWeight = 'bold';
+          li.style.color = 'green';
         }
+        memberList.appendChild(li);
       });
+    });
+
+    // Error handling
+    socket.on('error', (message) => {
+      alert(message);
+    });
+
+    function updateGroupInfo() {
+      socket.emit('updateGroup');
     }
-
-    // Navigate to the previous page
-    prevPageBtn.addEventListener('click', function() {
-      if (currentPage > 1) {
-        currentPage--;
-        renderPage(currentPage);
-      }
-    });
-
-    // Navigate to the next page
-    nextPageBtn.addEventListener('click', function() {
-      if (currentPage < totalPages) {
-        currentPage++;
-        renderPage(currentPage);
-      }
-    });
-
-    document.getElementById('reset').addEventListener('click', function () {
-  // Clear the PDF canvas
-  const context = canvas.getContext('2d');
-  context.clearRect(0, 0, canvas.width, canvas.height);
-
-  // Reset page navigation information
-  document.getElementById('pageNum').textContent = 'Page 0';
-  document.getElementById('pageCount').textContent = '0';
-
-  // Clear the thumbnails container
-  thumbnailsContainer.innerHTML = '';
-
-  // Reset PDF document and page number tracking
-  pdfDoc = null;
-  currentPage = 1;
-  totalPages = 0;
-
-  // Reset the upload file input
-  uploadPdfInput.value = ''; // Optional: clears the file selection
-});
-
-// Update loadPdf function to enable navigation buttons after PDF loads successfully
-function loadPdf(pdfData) {
-  pdfjsLib.getDocument(pdfData).promise.then(function(pdf) {
-    pdfDoc = pdf;
-    totalPages = pdfDoc.numPages;
-    document.getElementById('pageCount').textContent = totalPages;
-
-    // Enable the navigation buttons now that a new PDF is loaded
-    prevPageBtn.disabled = false;
-    nextPageBtn.disabled = false;
-
-    // Render the first page
-    renderPage(currentPage);
-
-    // Generate thumbnails
-    generateThumbnails();
-  }).catch(function(error) {
-    console.error("Error loading PDF: ", error);
-    alert("Failed to load PDF. Please try again.");
-  });
-}
-
-
   </script>
 </body>
 </html>
