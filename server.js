@@ -6,7 +6,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
-let groups = {}; // Store groups with members and admin info
+let groups = {}; // Store groups with members, admin info, and PDF URL
 
 // Serve static files
 app.use(express.static('public'));
@@ -17,7 +17,7 @@ io.on('connection', (socket) => {
   // Create group
   socket.on('createGroup', ({ groupName, adminName }) => {
     if (!groups[groupName]) {
-      groups[groupName] = { admin: adminName, members: [] };
+      groups[groupName] = { admin: adminName, members: [], pdfUrl: null }; // Initialize pdfUrl to null
       groups[groupName].members.push({ id: socket.id, name: adminName });
       socket.join(groupName);
       socket.emit('groupCreated', { groupName, admin: adminName });
@@ -33,7 +33,14 @@ io.on('connection', (socket) => {
     if (groups[groupName]) {
       groups[groupName].members.push({ id: socket.id, name: userName });
       socket.join(groupName);
-      socket.emit('joinedGroup', { groupName, admin: groups[groupName].admin, members: groups[groupName].members, isAdminUser: false });
+      // Emit 'joinedGroup' and include pdfUrl if it exists
+      socket.emit('joinedGroup', { 
+        groupName, 
+        admin: groups[groupName].admin, 
+        members: groups[groupName].members, 
+        isAdminUser: false,
+        pdfUrl: groups[groupName].pdfUrl // Pass the stored PDF URL to new members
+      });
 
       io.to(groupName).emit('updateGroup', { groupName, admin: groups[groupName].admin, members: groups[groupName].members });
     } else {
@@ -48,9 +55,21 @@ io.on('connection', (socket) => {
 
   // Upload PDF and sync to all members
   socket.on('uploadPdf', ({ groupName, pdfUrl }) => {
-    io.to(groupName).emit('syncPdf', { pdfUrl });
+    if (groups[groupName]) {
+      groups[groupName].pdfUrl = pdfUrl; // Store the PDF URL in the group
+      io.to(groupName).emit('syncPdf', { pdfUrl });
+    }
   });
 
+  // Reset PDF
+  socket.on('resetPdf', ({ groupName }) => {
+    if (groups[groupName]) {
+      groups[groupName].pdfUrl = null; // Clear the stored PDF URL
+      io.to(groupName).emit('resetPdf'); // Inform all members to reset the PDF
+    }
+  });
+
+  // Handle user disconnect
   socket.on('disconnect', () => {
     console.log('A user disconnected');
     for (let groupName in groups) {

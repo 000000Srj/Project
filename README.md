@@ -23,14 +23,14 @@ SyncSlide – Emphasizes synchronized viewing of slides in real time.
 - [x] Use Socket.IO to create connections for each client
 - [x] Group making of all the user 
 - [x] highlight the admin
-- [ ] Emit `pageChanged` events from the admin (presenter)
-- [ ] Ensure viewer clients listen for `pageChanged` events
-- [ ] Sync new viewers to the admin’s current page on join
+- [x] Emit `pageChanged` events from the admin (presenter)
+- [x] Ensure viewer clients listen for `pageChanged` events
+- [x] Sync new viewers to the admin’s current page on join
 
 ## Step 4: Role Management (Admin vs. Viewer)
-- [ ] Designate the first connection as admin or use `/admin` URL
-- [ ] Allow only the admin to control page navigation
-- [ ] Disable controls on the viewer side
+- [x] Designate the first connection as admin or use `/admin` URL
+- [x] Allow only the admin to control page navigation
+- [x] Disable controls on the viewer side
 
 ## Step 5: Add Optional Features for Better Experience
 - [ ] Show loading spinner while PDF pages load
