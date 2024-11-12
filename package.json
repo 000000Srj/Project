@@ -8,14 +8,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/venomusblood568/SyncSlide.git"
+    "url": "git+https://github.com/000000Srj/Syncslide.git"
   },
   "author": "Sam",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/venomusblood568/SyncSlide/issues"
+    "url": "https://github.com/000000Srj/Syncslide#issues"
   },
-  "homepage": "https://github.com/venomusblood568/SyncSlide#readme",
+  "homepage": "https://github.com/000000Srj/Syncslide#readme",
   "dependencies": {
     "express": "^4.21.1",
     "socket.io": "^4.8.1"
