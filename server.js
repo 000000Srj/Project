@@ -6,61 +6,67 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
-const groups = {}; // Store groups information
+let groups = {}; // Store groups with members and admin info
 
-// Serve static files (HTML, JS, CSS)
+// Serve static files
 app.use(express.static('public'));
 
-// Handle creating a new group
 io.on('connection', (socket) => {
-  console.log('A user connected:', socket.id);
+  console.log('A user connected');
 
-  // Create a new group
+  // Create group
   socket.on('createGroup', ({ groupName, adminName }) => {
     if (!groups[groupName]) {
-      // Create a new group with the admin's name and ID
-      groups[groupName] = {
-        admin: { id: socket.id, name: adminName },
-        members: [{ id: socket.id, name: adminName }]
-      };
-      socket.join(groupName); // Add user to the group
+      groups[groupName] = { admin: adminName, members: [] };
+      groups[groupName].members.push({ id: socket.id, name: adminName });
+      socket.join(groupName);
       socket.emit('groupCreated', { groupName, admin: adminName });
+
       io.to(groupName).emit('updateGroup', { groupName, admin: adminName, members: groups[groupName].members });
     } else {
-      socket.emit('error', 'Group already exists.');
+      socket.emit('error', 'Group already exists!');
     }
   });
 
-  // Join an existing group
+  // Join group
   socket.on('joinGroup', ({ groupName, userName }) => {
-    const group = groups[groupName];
-    if (group) {
-      group.members.push({ id: socket.id, name: userName });
-      socket.join(groupName); // Add user to the group
-      socket.emit('joinedGroup', { groupName, admin: group.admin.name });
-      io.to(groupName).emit('updateGroup', { groupName, admin: group.admin.name, members: group.members });
+    if (groups[groupName]) {
+      groups[groupName].members.push({ id: socket.id, name: userName });
+      socket.join(groupName);
+      socket.emit('joinedGroup', { groupName, admin: groups[groupName].admin, members: groups[groupName].members, isAdminUser: false });
+
+      io.to(groupName).emit('updateGroup', { groupName, admin: groups[groupName].admin, members: groups[groupName].members });
     } else {
-      socket.emit('error', 'Group does not exist.');
+      socket.emit('error', 'Group does not exist!');
     }
   });
 
-  // Disconnect user
+  // Sync page for all users
+  socket.on('syncPage', ({ groupName, page }) => {
+    io.to(groupName).emit('syncPage', { page });
+  });
+
+  // Upload PDF and sync to all members
+  socket.on('uploadPdf', ({ groupName, pdfUrl }) => {
+    io.to(groupName).emit('syncPdf', { pdfUrl });
+  });
+
   socket.on('disconnect', () => {
-    console.log('A user disconnected:', socket.id);
-    // Remove user from groups
-    for (const groupName in groups) {
-      const group = groups[groupName];
+    console.log('A user disconnected');
+    for (let groupName in groups) {
+      let group = groups[groupName];
       group.members = group.members.filter(member => member.id !== socket.id);
+
+      // If the group becomes empty, delete it
       if (group.members.length === 0) {
-        delete groups[groupName]; // Delete group if no members left
+        delete groups[groupName];
       } else {
-        io.to(groupName).emit('updateGroup', { groupName, admin: group.admin.name, members: group.members });
+        io.to(groupName).emit('updateGroup', { groupName, admin: group.admin, members: group.members });
       }
     }
   });
 });
 
-// Start the server
 server.listen(3000, () => {
-  console.log('Server is running on http://localhost:3000');
+  console.log('Server running on http://localhost:3000');
 });

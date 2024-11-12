@@ -68,6 +68,7 @@
     let totalPages = 0;
     let isAdmin = false;
     let pdfDoc = null;
+    let pdfUrl = ''; // To store the current PDF URL
 
     // Create group
     createGroupBtn.addEventListener('click', () => {
@@ -101,11 +102,11 @@
     });
 
     // Joined group successfully
-    socket.on('joinedGroup', ({ groupName, admin, members, isAdminUser }) => {
+    socket.on('joinedGroup', ({ groupName, admin, members, isAdminUser, pdfUrl }) => {
       sessionStorage.setItem('groupInfo', JSON.stringify({ groupName, admin, members }));
       sessionStorage.setItem('isAdmin', JSON.stringify(isAdminUser));
       isAdmin = isAdminUser;
-      
+
       groupTitle.textContent = groupName;
       adminName.textContent = `${admin}`;
       memberCount.textContent = members.length;
@@ -121,7 +122,9 @@
       });
 
       displayControls(isAdmin);
-      loadPdf(); // This loads the default PDF file
+      if (pdfUrl) {
+        loadPdf(pdfUrl); // Load the synchronized PDF for everyone
+      }
     });
 
     // Update group members list
@@ -155,28 +158,55 @@
       uploadSection.style.display = isAdmin ? 'block' : 'none'; // Show upload section only to admin
     }
 
-    function loadPdf() {
-      const url = 'your-pdf-file.pdf'; // Default PDF URL
+    function loadPdf(url) {
+      console.log("Loading PDF from URL:", url); // Debugging PDF URL
       pdfjsLib.getDocument(url).promise.then(doc => {
         pdfDoc = doc;
         totalPages = pdfDoc.numPages;
         totalPagesDisplay.textContent = totalPages;
         renderPage(currentPage);
+      }).catch(error => {
+        console.error("Error loading PDF:", error);
       });
     }
 
     function renderPage(pageNum) {
       pdfDoc.getPage(pageNum).then(page => {
-        const viewport = page.getViewport({ scale: 1.5 });
-        pdfCanvas.height = viewport.height;
-        pdfCanvas.width = viewport.width;
+        const scale = 1.5; // Consistent scale
+        const rotation = page.rotate; // Get the rotation angle of the page
+
+        const viewport = page.getViewport({ scale });
+        const canvasContext = pdfCanvas.getContext('2d');
+
+        // Adjust canvas dimensions based on rotation (90 or 270 degrees)
+        if (rotation === 90 || rotation === 270) {
+          pdfCanvas.width = viewport.height; // Swap width and height for landscape
+          pdfCanvas.height = viewport.width;
+        } else {
+          pdfCanvas.width = viewport.width; // Portrait mode, keep width and height as is
+          pdfCanvas.height = viewport.height;
+        }
+
+        // Clear the canvas before rendering a new page
+        canvasContext.clearRect(0, 0, pdfCanvas.width, pdfCanvas.height);
 
         const renderContext = {
-          canvasContext: pdfCanvas.getContext('2d'),
+          canvasContext: canvasContext,
           viewport: viewport
         };
 
-        page.render(renderContext);
+        // Render the page with the correct orientation
+        page.render(renderContext).promise.then(() => {
+          if (rotation === 90 || rotation === 270) {
+            canvasContext.save(); // Save the canvas state
+            canvasContext.translate(pdfCanvas.width / 2, pdfCanvas.height / 2); // Move to center
+            canvasContext.rotate(rotation * Math.PI / 180); // Apply rotation
+            canvasContext.translate(-pdfCanvas.width / 2, -pdfCanvas.height / 2); // Revert translation
+            canvasContext.restore(); // Restore the canvas state
+          }
+        });
+
+        // Update the page number display
         pageNumberDisplay.textContent = pageNum;
       });
     }
@@ -186,12 +216,22 @@
       if (currentPage > 1) {
         currentPage--;
         renderPage(currentPage);
+        socket.emit('syncPage', { groupName: groupNameInput.value, page: currentPage });
       }
     });
 
     nextPageBtn.addEventListener('click', () => {
       if (currentPage < totalPages) {
         currentPage++;
+        renderPage(currentPage);
+        socket.emit('syncPage', { groupName: groupNameInput.value, page: currentPage });
+      }
+    });
+
+    // Sync page number across users
+    socket.on('syncPage', ({ page }) => {
+      if (page !== currentPage) {
+        currentPage = page;
         renderPage(currentPage);
       }
     });
@@ -201,17 +241,12 @@
       const file = e.target.files[0];
       if (file && file.type === 'application/pdf') {
         const reader = new FileReader();
-        reader.onload = function(event) {
-          const pdfData = new Uint8Array(event.target.result);
-          pdfjsLib.getDocument(pdfData).promise.then(doc => {
-            pdfDoc = doc;
-            totalPages = pdfDoc.numPages;
-            totalPagesDisplay.textContent = totalPages;
-            currentPage = 1; // Start from the first page
-            renderPage(currentPage);
-          });
+        reader.onload = (e) => {
+          pdfUrl = e.target.result;
+          socket.emit('uploadPdf', { groupName: groupNameInput.value, pdfUrl });
+          loadPdf(pdfUrl);
         };
-        reader.readAsArrayBuffer(file);
+        reader.readAsDataURL(file);
       } else {
         alert('Please upload a valid PDF file.');
       }
@@ -219,20 +254,15 @@
 
     // Reset PDF
     resetPdfBtn.addEventListener('click', () => {
-      // Clear the file input
-      pdfUpload.value = ''; 
+      pdfUrl = '';
+      pdfCanvas.height = pdfCanvas.width = 0; // Clear the canvas
+      socket.emit('resetPdf', { groupName: groupNameInput.value });
+    });
 
-      // Clear the canvas
-      pdfCanvas.getContext('2d').clearRect(0, 0, pdfCanvas.width, pdfCanvas.height); 
-
-      // Reset PDF-related data
-      totalPages = 0;
-      totalPagesDisplay.textContent = totalPages;
-      currentPage = 1;
-      pageNumberDisplay.textContent = currentPage;
-      
-      // Load the default PDF file again
-      loadPdf();
+    // Handle server-side PDF reset
+    socket.on('resetPdf', () => {
+      pdfUrl = '';
+      pdfCanvas.height = pdfCanvas.width = 0; // Clear the canvas
     });
   </script>
 </body>
