@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SyncSlide - PDF Viewer</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="pdf-viewer">
+      <h1>SyncSlide PDF Viewer</h1>
+
+      <div id="groupInfo">
+        <h3>Group Info</h3>
+        <p>Group Name: <span id="groupTitle"></span></p>
+        <p>Admin: <span id="adminName"></span></p>
+        <p>Members: <span id="memberCount">0</span></p>
+        <ul id="memberList"></ul>
+      </div>
+
+      <div id="pdf-container">
+        <canvas id="pdf-canvas"></canvas>
+        <div id="controls" style="display: none;">
+          <button id="prevPage">Previous</button>
+          <button id="nextPage">Next</button>
+          <p>Page: <span id="pageNum"></span> / <span id="totalPages"></span></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const groupInfo = JSON.parse(sessionStorage.getItem('groupInfo'));
+    const isAdmin = JSON.parse(sessionStorage.getItem('isAdmin'));
+    const groupTitle = document.getElementById('groupTitle');
+    const adminName = document.getElementById('adminName');
+    const memberCount = document.getElementById('memberCount');
+    const memberList = document.getElementById('memberList');
+    const pdfCanvas = document.getElementById('pdf-canvas');
+    const pdfContainer = document.getElementById('pdf-container');
+    const controls = document.getElementById('controls');
+    const prevPageBtn = document.getElementById('prevPage');
+    const nextPageBtn = document.getElementById('nextPage');
+    const pageNumDisplay = document.getElementById('pageNum');
+    const totalPagesDisplay = document.getElementById('totalPages');
+    let currentPage = 1;
+    let totalPages = 0;
+    let pdfDoc = null;
+
+    groupTitle.textContent = groupInfo.groupName;
+    adminName.textContent = groupInfo.admin;
+    memberCount.textContent = groupInfo.members.length;
+    groupInfo.members.forEach(member => {
+      const li = document.createElement('li');
+      li.textContent = member.name;
+      if (member.id === groupInfo.members[0].id) { // Highlight admin
+        li.style.fontWeight = 'bold';
+        li.style.color = 'green';
+      }
+      memberList.appendChild(li);
+    });
+
+    // PDF viewer controls for admin
+    if (isAdmin) {
+      controls.style.display = 'block';
+
+      prevPageBtn.addEventListener('click', () => {
+        if (currentPage > 1) {
+          currentPage--;
+          renderPage(currentPage);
+          socket.emit('syncPage', { page: currentPage });
+        }
+      });
+
+      nextPageBtn.addEventListener('click', () => {
+        if (currentPage < totalPages) {
+          currentPage++;
+          renderPage(currentPage);
+          socket.emit('syncPage', { page: currentPage });
+        }
+      });
+
+      socket.on('syncPage', ({ page }) => {
+        currentPage = page;
+        renderPage(page);
+      });
+    }
+
+    // Load the PDF
+    pdfjsLib.getDocument('path_to_pdf.pdf').promise.then(doc => {
+      pdfDoc = doc;
+      totalPages = pdfDoc.numPages;
+      totalPagesDisplay.textContent = totalPages;
+      renderPage(currentPage);
+    });
+
+    function renderPage(pageNum) {
+      pdfDoc.getPage(pageNum).then(page => {
+        const viewport = page.getViewport({ scale: 1.5 });
+        pdfCanvas.height = viewport.height;
+        pdfCanvas.width = viewport.width;
+
+        const renderContext = {
+          canvasContext: pdfCanvas.getContext('2d'),
+          viewport: viewport
+        };
+
+        page.render(renderContext);
+        pageNumDisplay.textContent = pageNum;
+      });
+    }
+
+    // Error handling
+    socket.on('error', (message) => {
+      alert(message);
+    });
+  </script>
+</body>
+</html>

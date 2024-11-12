@@ -26,6 +26,20 @@
         <p>Members: <span id="memberCount">0</span></p>
         <ul id="memberList"></ul>
       </div>
+
+      <div id="pdfControls" style="display:none;">
+        <button id="prevPage">Previous Page</button>
+        <button id="nextPage">Next Page</button>
+        <p>Page: <span id="pageNumber">1</span> / <span id="totalPages"></span></p>
+      </div>
+
+      <!-- File upload section -->
+      <div id="uploadSection" style="display:none;">
+        <input type="file" id="pdfUpload" accept="application/pdf" />
+        <button id="resetPdf">Reset PDF</button>
+      </div>
+
+      <canvas id="pdfCanvas"></canvas>
     </div>
   </div>
 
@@ -40,6 +54,20 @@
     const adminName = document.getElementById('adminName');
     const memberCount = document.getElementById('memberCount');
     const memberList = document.getElementById('memberList');
+    const pdfControls = document.getElementById('pdfControls');
+    const prevPageBtn = document.getElementById('prevPage');
+    const nextPageBtn = document.getElementById('nextPage');
+    const pageNumberDisplay = document.getElementById('pageNumber');
+    const totalPagesDisplay = document.getElementById('totalPages');
+    const pdfCanvas = document.getElementById('pdfCanvas');
+    const uploadSection = document.getElementById('uploadSection');
+    const pdfUpload = document.getElementById('pdfUpload');
+    const resetPdfBtn = document.getElementById('resetPdf');
+
+    let currentPage = 1;
+    let totalPages = 0;
+    let isAdmin = false;
+    let pdfDoc = null;
 
     // Create group
     createGroupBtn.addEventListener('click', () => {
@@ -67,14 +95,33 @@
     socket.on('groupCreated', ({ groupName, admin }) => {
       groupTitle.textContent = groupName;
       adminName.textContent = `${admin}`;
+      isAdmin = true; // The creator is always the admin
       updateGroupInfo();
+      displayControls(isAdmin);
     });
 
     // Joined group successfully
-    socket.on('joinedGroup', ({ groupName, admin }) => {
+    socket.on('joinedGroup', ({ groupName, admin, members, isAdminUser }) => {
+      sessionStorage.setItem('groupInfo', JSON.stringify({ groupName, admin, members }));
+      sessionStorage.setItem('isAdmin', JSON.stringify(isAdminUser));
+      isAdmin = isAdminUser;
+      
       groupTitle.textContent = groupName;
       adminName.textContent = `${admin}`;
-      updateGroupInfo();
+      memberCount.textContent = members.length;
+      memberList.innerHTML = ''; // Clear the member list before updating it
+      members.forEach(member => {
+        const li = document.createElement('li');
+        li.textContent = member.name;
+        if (member.id === members[0].id) { // Highlight admin
+          li.style.fontWeight = 'bold';
+          li.style.color = 'green';
+        }
+        memberList.appendChild(li);
+      });
+
+      displayControls(isAdmin);
+      loadPdf(); // This loads the default PDF file
     });
 
     // Update group members list
@@ -102,6 +149,91 @@
     function updateGroupInfo() {
       socket.emit('updateGroup');
     }
+
+    function displayControls(isAdmin) {
+      pdfControls.style.display = isAdmin ? 'block' : 'none'; // Show controls only to admin
+      uploadSection.style.display = isAdmin ? 'block' : 'none'; // Show upload section only to admin
+    }
+
+    function loadPdf() {
+      const url = 'your-pdf-file.pdf'; // Default PDF URL
+      pdfjsLib.getDocument(url).promise.then(doc => {
+        pdfDoc = doc;
+        totalPages = pdfDoc.numPages;
+        totalPagesDisplay.textContent = totalPages;
+        renderPage(currentPage);
+      });
+    }
+
+    function renderPage(pageNum) {
+      pdfDoc.getPage(pageNum).then(page => {
+        const viewport = page.getViewport({ scale: 1.5 });
+        pdfCanvas.height = viewport.height;
+        pdfCanvas.width = viewport.width;
+
+        const renderContext = {
+          canvasContext: pdfCanvas.getContext('2d'),
+          viewport: viewport
+        };
+
+        page.render(renderContext);
+        pageNumberDisplay.textContent = pageNum;
+      });
+    }
+
+    // Page navigation
+    prevPageBtn.addEventListener('click', () => {
+      if (currentPage > 1) {
+        currentPage--;
+        renderPage(currentPage);
+      }
+    });
+
+    nextPageBtn.addEventListener('click', () => {
+      if (currentPage < totalPages) {
+        currentPage++;
+        renderPage(currentPage);
+      }
+    });
+
+    // Handle PDF upload
+    pdfUpload.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file && file.type === 'application/pdf') {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          const pdfData = new Uint8Array(event.target.result);
+          pdfjsLib.getDocument(pdfData).promise.then(doc => {
+            pdfDoc = doc;
+            totalPages = pdfDoc.numPages;
+            totalPagesDisplay.textContent = totalPages;
+            currentPage = 1; // Start from the first page
+            renderPage(currentPage);
+          });
+        };
+        reader.readAsArrayBuffer(file);
+      } else {
+        alert('Please upload a valid PDF file.');
+      }
+    });
+
+    // Reset PDF
+    resetPdfBtn.addEventListener('click', () => {
+      // Clear the file input
+      pdfUpload.value = ''; 
+
+      // Clear the canvas
+      pdfCanvas.getContext('2d').clearRect(0, 0, pdfCanvas.width, pdfCanvas.height); 
+
+      // Reset PDF-related data
+      totalPages = 0;
+      totalPagesDisplay.textContent = totalPages;
+      currentPage = 1;
+      pageNumberDisplay.textContent = currentPage;
+      
+      // Load the default PDF file again
+      loadPdf();
+    });
   </script>
 </body>
 </html>
